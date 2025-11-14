@@ -1,7 +1,6 @@
-// ctrl shift i or f12 then run this in console
-
 function solve() {
   const allElements = document.querySelectorAll('*');
+  
   const normalize = (raw) => {
     const questions = Array.isArray(raw.questions) ? raw.questions : [];
     const currentQuestionId = raw.currentQuestionId 
@@ -22,17 +21,18 @@ function solve() {
       nextQuestionId: raw.nextQuestionId
     };
   };
-
+  
   let gameState = null;
-
+  
+  // Search DOM for React game state
   for (const el of allElements) {
     const keys = Object.keys(el);
-    const reactKey = keys.find(k => k.startsWith('__reactFiber') || k.startsWith('__reactInternalInstance')); // okay bro
+    const reactKey = keys.find(k => k.startsWith('__reactFiber') || k.startsWith('__reactInternalInstance'));
     if (!reactKey) continue;
-
+    
     let fiber = el[reactKey];
     let depth = 0;
-
+    
     while (fiber && depth < 60) {
       const candidates = [
         fiber.memoizedState,
@@ -41,20 +41,17 @@ function solve() {
         fiber.return && fiber.return.memoizedState,
         fiber.return && fiber.return.memoizedProps
       ];
-
+      
       for (const cand of candidates) {
         if (!cand) continue;
-
         if (Array.isArray(cand.questions)) {
           gameState = normalize(cand);
           break;
         }
-
         if (cand.gameState && Array.isArray(cand.gameState.questions)) {
           gameState = normalize(cand.gameState);
           break;
         }
-
         for (const k of Object.keys(cand)) {
           try {
             const v = cand[k];
@@ -69,39 +66,61 @@ function solve() {
           } catch (e) {}
         }
       }
-
       if (gameState) break;
       fiber = fiber.return;
       depth++;
     }
-
     if (gameState) break;
   }
-
+  
   if (!gameState) {
-    console.log('click the play button then run the script');
+    console.log('Game state not found');
     return null;
   }
-
+  
   console.log('Game state found:', gameState);
+  
+  // Click the current question's element
   if (gameState.currentQuestion) {
-    const isoNumber = gameState.currentQuestion.id.split('-')[2]; // best security ong bro
-    const pathEl = document.getElementById(`FIPS_${isoNumber}`); // nice security G
-    if (pathEl) {
-      ['mousedown', 'mouseup', 'click'].forEach(evtType => { // didnt know if click or mouseup/down worked so i just did both
+    const questionId = gameState.currentQuestion.id;
+    let targetEl = null;
+    
+
+    targetEl = document.querySelector(`[id^="AREA_"][id*="${questionId.split('-').pop().toUpperCase()}"]`);
+    
+    targetEl = document.querySelector(`[id^="RIVER_"][id*="${questionId.split('-').pop().toUpperCase()}"]`);
+
+     targetEl = document.querySelector(`[id^="CITY_"][id*="${questionId.split('-').pop().toUpperCase()}"]`);
+
+    if (!targetEl) {
+      const parts = questionId.split('-');
+      if (parts.length >= 3) {
+        const isoNumber = parts[2]; // e.g., "51177" from "ISO-US-51177"
+        targetEl = document.getElementById(`FIPS_${isoNumber}`);
+      }
+    }
+    
+    // If still not found, try direct ID match
+    if (!targetEl) {
+      targetEl = document.getElementById(questionId);
+    }
+    
+    if (targetEl) {
+      // Simulate mousedown, mouseup, and click
+      ['mousedown', 'mouseup', 'click'].forEach(evtType => {
         const evt = new MouseEvent(evtType, {
           bubbles: true,
           cancelable: true,
           view: window
         });
-        pathEl.dispatchEvent(evt);
+        targetEl.dispatchEvent(evt);
       });
-      console.log(`Clicked path FIPS_${isoNumber}`);
+      console.log(`Clicked element with ID: ${targetEl.id}`);
     } else {
-      console.log(`FIPS path FIPS_${isoNumber} not found`);
+      console.log(`Element not found for question ID: ${questionId}`);
     }
   }
-
+  
   return gameState;
 }
 
